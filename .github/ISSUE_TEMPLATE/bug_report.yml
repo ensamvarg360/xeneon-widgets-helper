@@ -1,0 +1,48 @@
+name: Bug report
+description: Something in the Xeneon Widgets Helper isn't working as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please **don't** use this form for security issues.
+        See [SECURITY.md](https://github.com/ensamvarg360/xeneon-widgets-helper/blob/main/SECURITY.md) instead.
+  - type: input
+    id: version
+    attributes:
+      label: Helper version
+      description: Shown at the top of the tray menu, e.g. v0.0.15.
+    validations:
+      required: true
+  - type: dropdown
+    id: widget
+    attributes:
+      label: Which widget is affected?
+      options:
+        - Steam Library
+        - Tejpdeck
+        - Volym
+        - The Helper itself (tray, install, startup)
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: e.g. Windows 11 24H2
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what did you expect?
+      description: Steps to reproduce help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Relevant log lines
+      description: |
+        Tray menu → **View Logs** → open `helper.log`. Paste the lines from around the time of the problem.
+        Look through them first and remove anything you'd rather not share, such as folder names.
+      render: text
