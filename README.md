@@ -23,7 +23,7 @@
 <p align="center"><sub>Windows 10 / 11 (64-bit) · free to use · no account · no telemetry · no admin rights</sub></p>
 
 > [!NOTE]
-> An independent project by Rune & Render, not made, endorsed or supported by
+> An independent project by Tre Kronor Design LLC, not made, endorsed or supported by
 > CORSAIR or Valve. These are early versions (0.0.x): every release is checked
 > by a small group of testers, including on a real XENEON EDGE, before it is
 > published here.
@@ -419,4 +419,4 @@ Windows is a trademark of Microsoft Corporation. They're used here only to
 describe what the Helper works with. This project is not affiliated with,
 endorsed by, or sponsored by any of these companies.
 
-<p align="center"><sub>© 2026 Rune & Render</sub></p>
+<p align="center"><sub>© 2026 Tre Kronor Design LLC</sub></p>
