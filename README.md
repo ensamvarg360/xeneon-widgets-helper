@@ -40,7 +40,7 @@ volume.
 The Xeneon Widgets Helper is a tiny tray app that does exactly those things
 **on the widget's behalf**. The widget asks the Helper over a local connection
 on your own PC; the Helper does the job and answers. Nothing leaves your PC
-unless a widget needs Steam's online data (see
+unless a widget needs online data, such as Steam's or live air traffic (see
 [Privacy at a glance](#privacy-at-a-glance)).
 
 - **One install serves every widget.** One background process, one tray icon,
@@ -58,6 +58,8 @@ from the [Elgato Marketplace](https://marketplace.elgato.com/icue).
 | 🎮 **Steam Library** | Sees which Steam games are installed and which one is running, starts and stops games, opens Steam's own install/uninstall dialogs, and fetches your library, friends and achievements from Steam with a Steam Web API key you provide. |
 | 📼 **Tejpdeck**<br><sub>tape-deck music player</sub> | Plays music files from folders or playlists you choose, reads their tags and cover art, and shows or controls what other apps (Spotify, a browser tab, …) are playing through Windows' media controls. |
 | 🎚️ **Volym**<br><sub>audio mixer</sub> | Reads and changes the volume and mute of individual apps and your output devices through Windows' audio system, and shows what each app is playing. |
+| 🖨️ **Skrivare**<br><sub>Bambu Lab printer monitor</sub> | Reads your Bambu Lab 3D printer's status (progress, time left, temperatures, filament) and its chamber camera directly from the printer over your local network. Read-only: it never controls the printer. |
+| ✈️ **Flyg**<br><sub>live air traffic</sub> | Fetches the aircraft currently flying around the place you chose in the widget's settings from adsb.lol, and a photo of an aircraft you tap from planespotters.net, which the widget can't reach by itself inside iCUE. Stores nothing. |
 
 ## Install
 
@@ -99,9 +101,11 @@ There's no window. Everything is in the tray icon's right-click menu:
 |---|---|
 | **Xeneon Widgets Helper vX.Y.Z** | Shows the installed version. |
 | **Widgets** | Lists the widgets currently talking to the Helper. For information only. |
-| **Helper Status** | Opens the Helper's local status and Steam sign-in page in your browser (`http://localhost:3033/setup`). |
+| **Helper Status** | Opens the Helper's status page in your browser (`http://localhost:3033/helper`), with a card for each of your widgets that needs setting up (Steam sign-in, your printer) and whether that widget is connected. A widget's card appears once that widget has connected to the Helper; **Show all widgets** on the page lists every card. |
 | **Start with Windows** | Starts the Helper when you sign in to Windows. On by default; untick to turn it off. |
 | **View Logs** | Opens the folder with the Helper's log file. |
+| **Check for Updates** | Asks GitHub whether a newer version is published here. When one is, this item reads **Install Update vX.Y.Z…** instead. |
+| **Check for Updates Automatically** | Checks shortly after the Helper starts and then once a day, and shows a Windows notification when a new version is out. On by default; untick to turn it off. |
 | **Restart Helper** | Restarts the Helper. |
 | **Quit** | Stops the Helper until you start it again from the Start menu. Widgets that need it show as disconnected. |
 
@@ -110,9 +114,9 @@ There's no window. Everything is in the tray icon's right-click menu:
 | | |
 |---|---|
 | ✅ **Stays on your PC** | Your music, audio, settings and logs are never uploaded. Steam only receives your API key and SteamID when the Steam Library widget fetches your data. |
-| ✅ **No tracking** | No telemetry, analytics, ads, crash reports or update checks. |
+| ✅ **No tracking** | No telemetry, analytics, ads or crash reports. The update check only asks GitHub for the latest version, and can be turned off. |
 | ✅ **No account, no server** | The Helper's author runs no server, so there's nothing to send data to. |
-| 🌐 **Only internet use** | Steam's official services, only when you use the Steam Library widget. |
+| 🌐 **Only internet use** | Steam's official services, only when you use the Steam Library widget, and GitHub, to check for and download Helper updates. |
 | 🔒 **Local only** | The Helper listens on `127.0.0.1`, which other devices can't reach. The one exception is an optional, 2-minute phone sign-in for Steam. |
 
 The sections under [Exactly what it does](#exactly-what-it-does) list every
@@ -127,19 +131,26 @@ flowchart LR
         W1["Steam Library widget"]
         W2["Tejpdeck widget"]
         W3["Volym widget"]
+        W4["Skrivare widget"]
+        W5["Flyg widget"]
     end
     subgraph Helper["Xeneon Widgets Helper (one process)"]
         H["Local server<br/>127.0.0.1:3033"]
         B1["Steam backend"]
         B2["Tejpdeck backend"]
         B3["Volym backend"]
-        H --> B1 & B2 & B3
+        B4["Skrivare backend"]
+        B5["Flyg backend"]
+        H --> B1 & B2 & B3 & B4 & B5
     end
-    W1 & W2 & W3 -- "local requests" --> H
+    W1 & W2 & W3 & W4 & W5 -- "local requests" --> H
+    B4 -- "TLS, local network" --> P["Your Bambu Lab printer"]
     B1 -- "Steam client files,<br/>steam:// links" --> S["Steam on your PC"]
     B1 -- "HTTPS, your own API key" --> V["Steam Web API"]
     B2 -- "read" --> M["Your music folders"]
     B2 & B3 -- "PowerShell bridge" --> A["Windows media and audio"]
+    B5 -- "HTTPS, chosen location" --> F["adsb.lol"]
+    B5 -- "HTTPS, tapped aircraft's ICAO address" --> PS["planespotters.net"]
 ```
 
 - The Helper is an [Electron](https://www.electronjs.org/) app: a Node.js
@@ -148,7 +159,8 @@ flowchart LR
   which only programs on the same PC can reach.
 - Each widget has its own backend inside the Helper, under its own address
   prefix (`/api/…` for Steam Library, `/music/…` for Tejpdeck, `/volym/…` for
-  Volym). The Helper routes each request to the right one.
+  Volym, `/skrivare/…` for Skrivare, `/flyg/…` for Flyg). The Helper routes each request to the
+  right one. The Helper's own status page is `/helper`.
 
 **How it keeps other programs and websites out:**
 
@@ -158,7 +170,14 @@ flowchart LR
   on this PC.
 - Every backend also checks where each request comes from. It answers a
   packaged iCUE widget and the Helper's own pages, and refuses requests made
-  by ordinary websites open in your browser.
+  by ordinary websites open in your browser, including from sandboxed frames
+  on those websites.
+- The Helper refuses any request addressed to a name other than this PC
+  (`127.0.0.1`, `localhost`), which stops a website from reaching it by
+  re-pointing its own domain at your PC (DNS rebinding).
+- Steam sign-in is only accepted if it was started from the Helper's own
+  setup page, so a website can't switch the widget to someone else's
+  Steam account.
 
 ## Exactly what it does
 
@@ -180,8 +199,8 @@ first time you use the QR sign-in. Allowing it is only needed for that feature.
 
 ### Connections it makes
 
-The Helper contacts **only Steam's official services**, and only when you use
-the Steam Library widget:
+The Helper contacts **Steam's official services**, only when you use the
+Steam Library widget:
 
 | Destination | Why | What is sent |
 |---|---|---|
@@ -189,13 +208,44 @@ the Steam Library widget:
 | `store.steampowered.com` | A game's description, screenshots and genres for the detail view | The game's Steam app ID |
 | `steamcommunity.com` | Confirming your "Sign in through Steam" (OpenID) | The sign-in response Steam returned to your browser |
 
-Tejpdeck and Volym make **no internet connections**. The Helper sends **no
-analytics, telemetry or crash reports**, and **doesn't check for updates**.
+It also contacts **GitHub**, for Helper updates:
 
-When you open the **Helper Status** page, your *browser* loads its fonts from
-Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`), and Steam's
-sign-in and API-key pages are on Steam's own site. Those requests come from
-your browser, not the Helper.
+| Destination | Why | What is sent |
+|---|---|---|
+| `api.github.com` | Asking for the latest published version of the Helper: shortly after it starts and once a day (unless **Check for Updates Automatically** is off), or when you choose **Check for Updates** | Nothing beyond an ordinary web request |
+| `github.com` and GitHub's download servers (`*.githubusercontent.com`) | Downloading the new installer and its checksum, **only after you choose Download and Install** | Nothing beyond an ordinary web request |
+
+It contacts **your Bambu Lab printer** on your local network, only when you
+use the Skrivare widget and have entered the printer's address:
+
+| Destination | Why | What is sent |
+|---|---|---|
+| Your printer's local IP address, port 8883 (MQTT over TLS) | Reading the printer's status. Opened when the widget asks for it, closed 2 minutes after the widget stops asking. | The printer's serial number and LAN access code, which the printer requires to sign in |
+| Your printer's local IP address, port 6000 (TLS) | The chamber camera picture on the larger widget sizes (A1 and P1 printers). Closed 30 seconds after the widget stops showing it. | The printer's LAN access code |
+
+Skrivare only reads. It never starts, stops or changes anything on the
+printer, and it doesn't touch Bambu Cloud or Bambu Handy, which keep working
+as usual.
+
+It contacts **adsb.lol** and **planespotters.net**, two public aviation
+services, only while you use the Flyg widget:
+
+| Destination | Why | What is sent |
+|---|---|---|
+| `api.adsb.lol` | The aircraft currently flying around the place you chose, every 5 to 30 seconds while the widget is showing | The latitude and longitude of the place chosen in the widget's settings (rounded to about 10 m) and a search radius |
+| `api.planespotters.net` | A photo of an aircraft, when you tap it | That aircraft's 24-bit ICAO address, which the aircraft itself broadcasts publicly |
+
+The location is whatever you picked: a city, or exact coordinates if you
+typed them. If you'd rather not share where you are, pick a nearby city.
+Flyg sends nothing else about you and stores nothing.
+
+Tejpdeck, Volym and Skrivare make **no internet connections**. The Helper
+sends **no analytics, telemetry or crash reports**.
+
+The Helper Status page and the Steam and printer setup pages load nothing from
+the internet. When you choose to sign in, or follow the link to get an API
+key, your *browser* goes to Steam's own site; those requests come from your
+browser, not the Helper.
 
 ### What it does on your PC
 
@@ -241,8 +291,10 @@ All in your own user profile, never in the install folder:
 
 | Location | Contents |
 |---|---|
-| `%APPDATA%\xeneon-widgets-helper\` | Settings for each widget: your Steam SteamID and Steam Web API key, Tejpdeck's chosen folders, favorites and player settings, and the per-install access tokens. Also `helper.log` (the Helper's log, capped at about 10 MB across two files) and Electron's normal cache folders. |
+| `%APPDATA%\xeneon-widgets-helper\` | Settings for each widget: your Steam SteamID and Steam Web API key, Tejpdeck's chosen folders, favorites and player settings, Skrivare's printer address, serial number and LAN access code (`skrivare-config.json`), and the per-install access tokens. Also `widgets-seen.json` (which widgets have connected, and when, so the Helper Status page only shows yours), `helper.log` (the Helper's log, capped at about 10 MB across two files) and Electron's normal cache folders. |
 | `%TEMP%\xeneon-steam-helper-crash.log` | Startup and crash diagnostics, used if the Helper fails before its normal log is available. |
+| `%APPDATA%\xeneon-widgets-helper\update-check-disabled` | Present only while **Check for Updates Automatically** is turned off. |
+| `%TEMP%\xeneon-widgets-helper-update\` | The last update installer you chose to download. |
 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` | The "Start with Windows" entry (`electron.app.Xeneon Widgets Helper`), while that option is ticked. |
 
 Your Steam Web API key is stored **in plain text** in `config.json` in that
@@ -258,7 +310,9 @@ sent anywhere.
 
 - No telemetry, analytics, advertising, tracking or crash reporting.
 - No accounts, and no server of its own.
-- No automatic updates, and no downloading or running code from the internet.
+- No updates without your say-so. The Helper downloads and runs an installer
+  only when you choose **Download and Install**, only from this repository's
+  Releases, and only after it matches the release's SHA-256 checksum.
 - No administrator rights, drivers, services or background tasks beyond the
   tray app itself.
 - No access to your files beyond Steam's library files, the music folders you
@@ -268,11 +322,13 @@ sent anywhere.
 
 ## Updating and uninstalling
 
-**Updating:** download the newer installer from
-[Releases](https://github.com/ensamvarg360/xeneon-widgets-helper/releases) and
-run it. It replaces the old version in place and keeps your settings. The
-Helper doesn't update itself, so to hear about new versions, use
-**Watch → Custom → Releases** at the top of this page.
+**Updating:** when a new version is out, the Helper shows a Windows
+notification and the tray menu offers **Install Update vX.Y.Z…**. Choose
+**Download and Install**: the Helper downloads the installer from this page's
+Releases, checks it against its SHA-256 checksum, installs it and restarts.
+Your settings are kept. You can also download the newer installer from
+[Releases](https://github.com/ensamvarg360/xeneon-widgets-helper/releases)
+yourself and run it; it replaces the old version in place the same way.
 
 **Uninstalling:**
 

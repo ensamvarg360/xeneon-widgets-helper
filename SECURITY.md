@@ -25,8 +25,8 @@ the changelog will say so, and you'll be credited unless you'd prefer not to be.
 
 In scope: the Helper and everything its installer ships. That includes the
 tray app, the local server on port 3033, the temporary LAN sign-in listener,
-the bundled widget backends (Steam Library, Tejpdeck, Volym), their
-PowerShell bridges, and the installer itself.
+the bundled widget backends (Steam Library, Tejpdeck, Volym, Skrivare,
+Flyg), their PowerShell bridges, and the installer itself.
 
 Especially welcome: ways a **website open in your browser**, **another
 device on your network**, or **another user account on the PC** could read
